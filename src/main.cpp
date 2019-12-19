@@ -6,19 +6,72 @@
 #include "HTTPSRedirect.h"
 #include "screen.h"
 #include "credentials.h"
+#include "DebugMacros.h"
 
 #ifdef CREDENTIALS
 const char* ssid = mySSID;
 const char* password = myPASSWORD;
-const char *GScriptId = scriptID;
+const char* GScriptId = scriptID;
+const char* batteryHost = myBatteryHost;
+int batteryPort = myBatteryPort;
+const char* batteryUrl = myBatteryUrl;
 #else
 const char* ssid = ""; //replace with you ssid
 const char* password = ""; //replace with your password
-const char *GScriptId = ""; //replace with your script id
+const char* GScriptId = ""; //replace with your script id
+const char* batteryHost = NULL;
+
 #endif
 
-EinkScreen screen = EinkScreen();
 ADC_MODE(ADC_VCC);
+EinkScreen screen = EinkScreen();
+void sendBatteryState(uint16_t value)
+{
+  if(batteryHost==NULL)
+  {
+    return;
+  }
+  WiFiClient httpClient;
+  int retry = 0;
+  while ((!httpClient.connect(batteryHost, batteryPort)) && (retry < 15))
+  {
+    delay(100);
+    DPRINT(".");
+    retry++;
+  }
+  if (retry == 15)
+  {
+    DPRINTLN("Connection failed");
+  }
+  else
+  {
+    DPRINTLN("Connected to Server");
+  }
+
+  httpClient.print(String("PUT ") + batteryUrl + " HTTP/1.1\r\n" +
+                    "Host: " + batteryHost + "\r\n" +
+                    "User-Agent: BuildFailureDetectorESP8266\r\n" +
+                    "Content-Type: text/plain\r\n" +
+                    "Content-Length: 4\r\n" +
+                    "Connection: close\r\n\r\n" +
+                    value);
+  DPRINT("Battery value:");
+  DPRINTLN(value);
+  while (httpClient.connected())
+  {
+    String line = httpClient.readStringUntil('\n');
+    if (line == "\r")
+    {
+      break;
+    }
+  }
+  String result;
+  while (httpClient.available())
+  {
+    result += httpClient.readStringUntil('\n');
+  }
+  DPRINTLN(result);
+}
 
 JsonDocument jsonGetRequest(const char *host, String path, const char fingerprint[], const size_t capacity)
 {
@@ -37,7 +90,7 @@ JsonDocument jsonGetRequest(const char *host, String path, const char fingerprin
   }
   else
   {
-    Serial.println("Connected to Server");
+    DPRINTLN("Connected to Server");
   }
 
   httpsClient.print(String("GET ") + path + " HTTP/1.1\r\n" +
@@ -97,18 +150,18 @@ void getCalendarInfo(char* events)
   {
     Serial.println("Response is not a JSON Array");
   }
-  Serial.print("# Events ");
-  Serial.println(doc.size());
+  DPRINT("# Events ");
+  DPRINTLN(doc.size());
   strcpy(events, "");
   for (u_int i = 0;i < doc.size(); i++)
   {
     const char* event = doc[i];
-    Serial.println(event);
+    DPRINTLN(event);
     strcat(events,event);
     strcat(events,"\n");
   }
-  Serial.println("Events:");
-  Serial.println(events);
+  DPRINTLN("Events:");
+  DPRINTLN(events);
 }
 
 WeatherInfo getWeatherInfo()
@@ -137,9 +190,7 @@ void setup()
   Serial.println(WiFi.localIP());
   delay(100);
 
-  int spannung = ESP.getVcc();
-  Serial.print("Spannung ");
-  Serial.println(spannung);
+  sendBatteryState(ESP.getVcc());
 
   // first update should be full refresh
   screen.clear();
