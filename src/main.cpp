@@ -9,17 +9,17 @@
 #include "DebugMacros.h"
 
 #ifdef CREDENTIALS
-const char* ssid = mySSID;
-const char* password = myPASSWORD;
-const char* GScriptId = scriptID;
-const char* batteryHost = myBatteryHost;
+const char *ssid = mySSID;
+const char *password = myPASSWORD;
+const char *GScriptId = scriptID;
+const char *batteryHost = myBatteryHost;
 int batteryPort = myBatteryPort;
-const char* batteryUrl = myBatteryUrl;
+const char *batteryUrl = myBatteryUrl;
 #else
-const char* ssid = ""; //replace with you ssid
-const char* password = ""; //replace with your password
-const char* GScriptId = ""; //replace with your script id
-const char* batteryHost = NULL;
+const char *ssid = "";      //replace with you ssid
+const char *password = "";  //replace with your password
+const char *GScriptId = ""; //replace with your script id
+const char *batteryHost = NULL;
 
 #endif
 
@@ -27,7 +27,7 @@ ADC_MODE(ADC_VCC);
 EinkScreen screen = EinkScreen();
 void sendBatteryState(uint16_t value)
 {
-  if(batteryHost==NULL)
+  if (batteryHost == NULL)
   {
     return;
   }
@@ -49,12 +49,12 @@ void sendBatteryState(uint16_t value)
   }
 
   httpClient.print(String("PUT ") + batteryUrl + " HTTP/1.1\r\n" +
-                    "Host: " + batteryHost + "\r\n" +
-                    "User-Agent: BuildFailureDetectorESP8266\r\n" +
-                    "Content-Type: text/plain\r\n" +
-                    "Content-Length: 4\r\n" +
-                    "Connection: close\r\n\r\n" +
-                    value);
+                   "Host: " + batteryHost + "\r\n" +
+                   "User-Agent: BuildFailureDetectorESP8266\r\n" +
+                   "Content-Type: text/plain\r\n" +
+                   "Content-Length: 4\r\n" +
+                   "Connection: close\r\n\r\n" +
+                   value);
   DPRINT("Battery value:");
   DPRINTLN(value);
   while (httpClient.connected())
@@ -73,8 +73,9 @@ void sendBatteryState(uint16_t value)
   DPRINTLN(result);
 }
 
-JsonDocument jsonGetRequest(const char *host, String path, const char fingerprint[], const size_t capacity)
+WeatherInfo getWeatherInfo(String station, const char *host, String path, const char fingerprint[], int &error)
 {
+  error = 0;
   WiFiClientSecure httpsClient;
   int retry = 0;
   httpsClient.setFingerprint(fingerprint);
@@ -87,6 +88,8 @@ JsonDocument jsonGetRequest(const char *host, String path, const char fingerprin
   if (retry == 15)
   {
     Serial.println("Connection failed");
+    error = 1;
+    return {0,0,0};
   }
   else
   {
@@ -105,24 +108,28 @@ JsonDocument jsonGetRequest(const char *host, String path, const char fingerprin
       break;
     }
   }
-  String result;
   while (httpsClient.available())
   {
-    result += httpsClient.readStringUntil('\n');
+    String line = httpsClient.readStringUntil('\n');
+    if(line.startsWith(station))
+    {
+      String values = line.substring(line.indexOf(';')+1);
+      values = values.substring(values.indexOf(';')+1);
+      double temp = values.substring(0,values.indexOf(';')).toDouble();
+      values = values.substring(values.indexOf(';')+1);
+      double rain =values.substring(0,values.indexOf(';')).toDouble();
+      values = values.substring(values.indexOf(';')+1);
+      double sunshine = values.substring(0,values.indexOf(';')).toDouble();
+      return {temp, sunshine, rain};
+    }
   }
-  DynamicJsonDocument doc(capacity);
-  DeserializationError error = deserializeJson(doc, result);
-  if (error)
-  {
-    Serial.println(result);
-    Serial.print(F("deserializeJson() failed: "));
-    Serial.println(error.c_str());
-  }
-  return doc;
+  error = 2;
+  return {0,0,0};
 }
 
-void getCalendarInfo(char* events)
+void getCalendarInfo(char *events, int &error)
 {
+  error = 0;
   const char *host = "script.google.com";
   String url = String("/macros/s/") + GScriptId + "/exec";
 
@@ -139,43 +146,37 @@ void getCalendarInfo(char* events)
 
   client.GET(url, host);
   String data = client.getResponseBody();
-  DeserializationError error = deserializeJson(doc, data);
-  if (error)
+  DeserializationError jsonError = deserializeJson(doc, data);
+  if (jsonError)
   {
     Serial.println(data);
     Serial.print(F("deserializeJson() failed: "));
-    Serial.println(error.c_str());
+    Serial.println(jsonError.c_str());
+    error = 1;
   }
   if (!doc.is<JsonArray>())
   {
     Serial.println("Response is not a JSON Array");
+    error = 2;
   }
   DPRINT("# Events ");
   DPRINTLN(doc.size());
   strcpy(events, "");
-  for (u_int i = 0;i < doc.size(); i++)
+  for (u_int i = 0; i < doc.size(); i++)
   {
-    const char* event = doc[i];
+    const char *event = doc[i];
     DPRINTLN(event);
-    strcat(events,event);
-    strcat(events,"\n");
+    strcat(events, event);
+    strcat(events, "\n");
   }
   DPRINTLN("Events:");
   DPRINTLN(events);
 }
 
-WeatherInfo getWeatherInfo()
-{
-  Serial.println("Getting weather info");
-  const size_t capacity = JSON_OBJECT_SIZE(7) + JSON_OBJECT_SIZE(13) + 310;
-  JsonDocument doc = jsonGetRequest("opendata.netcetera.com", "/smn/smn/SMA", "63e90ab49c379653aed3d0c5b5e10bddbd9a05f3", capacity);
-  return {doc["temperature"], doc["sunshine"], doc["precipitation"]};
-}
-
 void setup()
 {
   pinMode(D6, OUTPUT);
-  digitalWrite(D6,LOW);
+  digitalWrite(D6, LOW);
   WiFi.begin(ssid, password);
   Serial.begin(115200);
   Serial.println();
@@ -193,14 +194,25 @@ void setup()
   sendBatteryState(ESP.getVcc());
 
   // first update should be full refresh
-  screen.clear();
-  screen.printWeatherData(getWeatherInfo());
+  int weatherError = 0;
+  WeatherInfo weatherInfo = getWeatherInfo("SMA","data.geo.admin.ch","/ch.meteoschweiz.messwerte-aktuell/VQHA80.csv","f635f3f089482deac772461781834c13291d62ba",weatherError);
+
   char events[300];
-  getCalendarInfo(events);
-  screen.printCalendarData(events);
+  int eventError = 0;
+  getCalendarInfo(events, eventError);
+
+  screen.clear();
+  if (eventError == 0)
+  {
+    screen.printCalendarData(events);
+  }
+  if (weatherError == 0)
+  {
+    screen.printWeatherData(weatherInfo);
+  }
   screen.update();
   screen.powerOff();
-  digitalWrite(D6,HIGH);
+  digitalWrite(D6, HIGH);
 }
 
 void loop()
