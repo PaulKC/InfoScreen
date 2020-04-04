@@ -14,8 +14,8 @@ class EinkScreen{
         int16_t displayWidth;
     public:
         EinkScreen();
-        void printWeatherData(WeatherInfo);
-        void printCalendarData(const char[]);
+        void printWeatherData(WeatherInfo, int error);
+        void printCalendarData(const char[], int error);
         void powerOff();
         void clear();
         void update();

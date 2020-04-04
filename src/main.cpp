@@ -89,17 +89,17 @@ WeatherInfo getWeatherInfo(String station, const char *host, String path, const 
   {
     Serial.println("Connection failed");
     error = 1;
-    return {0,0,0};
+    return {0, 0, 0};
   }
   else
   {
     DPRINTLN("Connected to Server");
   }
-
   httpsClient.print(String("GET ") + path + " HTTP/1.1\r\n" +
                     "Host: " + host + "\r\n" +
                     "User-Agent: BuildFailureDetectorESP8266\r\n" +
                     "Connection: close\r\n\r\n");
+  delay(100);
   while (httpsClient.connected())
   {
     String line = httpsClient.readStringUntil('\n');
@@ -111,20 +111,20 @@ WeatherInfo getWeatherInfo(String station, const char *host, String path, const 
   while (httpsClient.available())
   {
     String line = httpsClient.readStringUntil('\n');
-    if(line.startsWith(station))
+    if (line.startsWith(station))
     {
-      String values = line.substring(line.indexOf(';')+1);
-      values = values.substring(values.indexOf(';')+1);
-      double temp = values.substring(0,values.indexOf(';')).toDouble();
-      values = values.substring(values.indexOf(';')+1);
-      double rain =values.substring(0,values.indexOf(';')).toDouble();
-      values = values.substring(values.indexOf(';')+1);
-      double sunshine = values.substring(0,values.indexOf(';')).toDouble();
+      String values = line.substring(line.indexOf(';') + 1);
+      values = values.substring(values.indexOf(';') + 1);
+      double temp = values.substring(0, values.indexOf(';')).toDouble();
+      values = values.substring(values.indexOf(';') + 1);
+      double rain = values.substring(0, values.indexOf(';')).toDouble();
+      values = values.substring(values.indexOf(';') + 1);
+      double sunshine = values.substring(0, values.indexOf(';')).toDouble();
       return {temp, sunshine, rain};
     }
   }
   error = 2;
-  return {0,0,0};
+  return {0, 0, 0};
 }
 
 void getCalendarInfo(char *events, int &error)
@@ -195,21 +195,21 @@ void setup()
 
   // first update should be full refresh
   int weatherError = 0;
-  WeatherInfo weatherInfo = getWeatherInfo("SMA","data.geo.admin.ch","/ch.meteoschweiz.messwerte-aktuell/VQHA80.csv","f635f3f089482deac772461781834c13291d62ba",weatherError);
+  WeatherInfo weatherInfo = getWeatherInfo("SMA", "data.geo.admin.ch", "/ch.meteoschweiz.messwerte-aktuell/VQHA80.csv", "f635f3f089482deac772461781834c13291d62ba", weatherError);
+  // retry if station was not found
+  if (weatherError == 2)
+  {
+    weatherError = 0;
+    weatherInfo = getWeatherInfo("SMA", "data.geo.admin.ch", "/ch.meteoschweiz.messwerte-aktuell/VQHA80.csv", "f635f3f089482deac772461781834c13291d62ba", weatherError);
+  }
 
   char events[300];
   int eventError = 0;
   getCalendarInfo(events, eventError);
 
   screen.clear();
-  if (eventError == 0)
-  {
-    screen.printCalendarData(events);
-  }
-  if (weatherError == 0)
-  {
-    screen.printWeatherData(weatherInfo);
-  }
+  screen.printCalendarData(events, eventError);
+  screen.printWeatherData(weatherInfo, weatherError);
   screen.update();
   screen.powerOff();
   digitalWrite(D6, HIGH);

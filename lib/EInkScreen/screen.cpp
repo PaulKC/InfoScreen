@@ -28,7 +28,7 @@ void EinkScreen::update()
     display.nextPage();
 }
 
-void EinkScreen::printWeatherData(WeatherInfo weatherInfo)
+void EinkScreen::printWeatherData(WeatherInfo weatherInfo,int error)
 {
     int size = 3;
     if (weatherInfo.temp < 0)
@@ -53,29 +53,41 @@ void EinkScreen::printWeatherData(WeatherInfo weatherInfo)
     x = x + tbw_temp_desc / 2 - tbw_temp_val / 2;
     display.setCursor(x, y);
     display.setFont(&FreeMonoBold18pt7b);
-    display.print(tempString);
+    if(error == 0)
+    {
+        display.print(tempString);
+    }
+    else
+    {
+        char buffer [2];
+        sprintf(buffer,"E%d",error);
+        display.print(buffer);
+    }
     display.drawLine(0, 2 * tbh_temp_val + 2 * tbh_temp_desc, displayWidth, 2 * tbh_temp_val + 2 * tbh_temp_desc, GxEPD_BLACK);
     display.drawLine(displayWidth / 2, 0, displayWidth / 2, 2 * tbh_temp_val + 2 * tbh_temp_desc, GxEPD_BLACK);
-    if (weatherInfo.sunshine > 0 && weatherInfo.rain == 0)
+    if(error==0)
     {
-        display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, sun, 76, 76, GxEPD_BLACK);
-    }
-    else if (weatherInfo.sunshine == 0 && weatherInfo.rain == 0)
-    {
-        display.drawBitmap(3 * displayWidth / 4 - 95 / 2, 0, cloud, 95, 76, GxEPD_BLACK);
-    }
-    else if (weatherInfo.sunshine == 0 && weatherInfo.rain > 0)
-    {
-        display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, rain, 76, 76, GxEPD_BLACK);
-    }
-    else if (weatherInfo.sunshine > 0 && weatherInfo.rain > 0)
-    {
-        display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, mix, 76, 76, GxEPD_BLACK);
+        if (weatherInfo.sunshine > 0 && weatherInfo.rain == 0)
+        {
+            display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, sun, 76, 76, GxEPD_BLACK);
+        }
+        else if (weatherInfo.sunshine == 0 && weatherInfo.rain == 0)
+        {
+            display.drawBitmap(3 * displayWidth / 4 - 95 / 2, 0, cloud, 95, 76, GxEPD_BLACK);
+        }
+        else if (weatherInfo.sunshine == 0 && weatherInfo.rain > 0)
+        {
+            display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, rain, 76, 76, GxEPD_BLACK);
+        }
+        else if (weatherInfo.sunshine > 0 && weatherInfo.rain > 0)
+        {
+            display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, mix, 76, 76, GxEPD_BLACK);
+        }
     }
     //TODO does not work during the night
 }
 
-void EinkScreen::printCalendarData(const char events[])
+void EinkScreen::printCalendarData(const char events[], int error)
 {
     int16_t tbx, tby;
     uint16_t tbw, tbh;
@@ -85,5 +97,14 @@ void EinkScreen::printCalendarData(const char events[])
     uint16_t y = 76 + tbh+5;
     display.setCursor(x,y);
     display.setFont(&FreeMonoBold18pt7b);
-    display.print(events);
+    if(error==0)
+    {
+        display.print(events);
+    }
+    else
+    {
+        char buffer [2];
+        sprintf(buffer,"E%d",error);
+        display.print(buffer);
+    }
 }
