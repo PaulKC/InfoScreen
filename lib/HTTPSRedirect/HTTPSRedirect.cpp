@@ -10,15 +10,11 @@
 #include "HTTPSRedirect.h"
 #include "DebugMacros.h"
 
-HTTPSRedirect::HTTPSRedirect(void) : _httpsPort(443){
+HTTPSRedirect::HTTPSRedirect(const int p=443) : _httpsPort(p){
   Init();
 }
 
-HTTPSRedirect::HTTPSRedirect(const int p) : _httpsPort(p){
-  Init();
-}
-
-HTTPSRedirect::~HTTPSRedirect(){ 
+HTTPSRedirect::~HTTPSRedirect(){
 }
 
 void HTTPSRedirect::Init(void){
@@ -484,3 +480,4 @@ void HTTPSRedirect::printHeaderFields(void){
   DPRINTLN(_hF.contentType);
 }
 #endif
+

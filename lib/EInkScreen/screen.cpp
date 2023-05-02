@@ -1,7 +1,9 @@
 #include "screen.h"
 #include <Arduino.h>
 
-EinkScreen::EinkScreen() : display(GxEPD2_420(/*CS=D8*/ 5, /*DC=D3*/ 0, /*RST=D4*/ 2, /*BUSY=D2*/ 4))
+const float weather_display_height = 76;
+
+EinkScreen::EinkScreen() : display(GxEPD2_420(/*CS=D8*/ D2, /*DC=D3*/ D3, /*RST=D4*/ D7, /*BUSY=D2*/ D6))
 {
     display.init(115200);
     display.setRotation(3);
@@ -69,19 +71,19 @@ void EinkScreen::printWeatherData(WeatherInfo weatherInfo,int error)
     {
         if (weatherInfo.sunshine > 0 && weatherInfo.rain == 0)
         {
-            display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, sun, 76, 76, GxEPD_BLACK);
+            display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, sun, weather_display_height, weather_display_height, GxEPD_BLACK);
         }
         else if (weatherInfo.sunshine == 0 && weatherInfo.rain == 0)
         {
-            display.drawBitmap(3 * displayWidth / 4 - 95 / 2, 0, cloud, 95, 76, GxEPD_BLACK);
+            display.drawBitmap(3 * displayWidth / 4 - 95 / 2, 0, cloud, 95, weather_display_height, GxEPD_BLACK);
         }
         else if (weatherInfo.sunshine == 0 && weatherInfo.rain > 0)
         {
-            display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, rain, 76, 76, GxEPD_BLACK);
+            display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, rain, weather_display_height, weather_display_height, GxEPD_BLACK);
         }
         else if (weatherInfo.sunshine > 0 && weatherInfo.rain > 0)
         {
-            display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, mix, 76, 76, GxEPD_BLACK);
+            display.drawBitmap(3 * displayWidth / 4 - 76 / 2, 0, mix, weather_display_height, weather_display_height, GxEPD_BLACK);
         }
     }
     //TODO does not work during the night
@@ -92,11 +94,12 @@ void EinkScreen::printCalendarData(const char events[], int error)
     int16_t tbx, tby;
     uint16_t tbw, tbh;
     //Get height of one Line
+    display.setFont(&FreeMonoBold18pt7b);
     display.getTextBounds("T", 0, 0, &tbx, &tby, &tbw, &tbh);
     uint16_t x = 0;
-    uint16_t y = 76 + tbh+5;
+    uint16_t y = weather_display_height+(tbh/2) + tbh+5;
     display.setCursor(x,y);
-    display.setFont(&FreeMonoBold18pt7b);
+    
     if(error==0)
     {
         display.print(events);

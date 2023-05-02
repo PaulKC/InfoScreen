@@ -61,8 +61,6 @@ class HTTPSRedirect : public WiFiClientSecure {
 #endif
 
   public:
-
-    HTTPSRedirect(void);
     HTTPSRedirect(const int);
     ~HTTPSRedirect();
 
@@ -77,10 +75,11 @@ class HTTPSRedirect : public WiFiClientSecure {
     
     void setPrintResponseBody(bool);
     void setMaxRedirects(const unsigned int);
-    
+
     void setContentTypeHeader(const char *);
 #ifdef OPTIMIZE_SPEED
     bool reConnectFinalEndpoint(void);
 #endif
 
 };
+
