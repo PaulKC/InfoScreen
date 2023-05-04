@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
+#include "esp_adc_cal.h"
 #include "HTTPSRedirect.h"
 #include "screen.h"
 #include "credentials.h"
@@ -81,6 +82,37 @@ const char *events_cert =
     "-----END CERTIFICATE-----\n";
 
 EinkScreen screen = EinkScreen();
+
+float readBattery() {
+  uint32_t value = 0;
+  int rounds = 11;
+  esp_adc_cal_characteristics_t adc_chars;
+
+  //battery voltage divided by 2 can be measured at GPIO34, which equals ADC1_CHANNEL6
+  adc1_config_width(ADC_WIDTH_BIT_12);
+  adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
+  switch(esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &adc_chars)) {
+    case ESP_ADC_CAL_VAL_EFUSE_TP:
+      DPRINTLN("Characterized using Two Point Value");
+      break;
+    case ESP_ADC_CAL_VAL_EFUSE_VREF:
+      DPRINTLN("Characterized using eFuse Vref (%d mV)\r\n", adc_chars.vref);
+      break;
+    default:
+      DPRINTLN("Characterized using Default Vref (%d mV)\r\n", 1100);
+  }
+
+  //to avoid noise, sample the pin several times and average the result
+  for(int i=1; i<=rounds; i++) {
+    value += adc1_get_raw(ADC1_CHANNEL_6);
+  }
+  value /= (uint32_t)rounds;
+
+  //due to the voltage divider (1M+1M) values must be multiplied by 2
+  //and convert mV to V
+  return esp_adc_cal_raw_to_voltage(value, &adc_chars)*2.0/1000.0;
+}
+
 void sendBatteryState(uint16_t value)
 {
   if (batteryHost == NULL)
@@ -221,6 +253,7 @@ void getCalendarInfo(char *events, const char *cert, int &error)
     {
       const char *event = doc[i];
       DPRINTLN(event);
+      strcat(events, "- ");
       strcat(events, event);
       strcat(events, "\n");
     }
@@ -260,10 +293,12 @@ void setup()
   char events[300];
   int eventError = 0;
   getCalendarInfo(events, events_cert, eventError);
+  float batteryVoltage = readBattery();
 
   screen.clear();
   screen.printCalendarData(events, eventError);
   screen.printWeatherData(weatherInfo, weatherError);
+  screen.drawBatteryIcon(batteryVoltage);
   screen.update();
   screen.powerOff();
 
